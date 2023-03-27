@@ -1,0 +1,45 @@
+version: '2'
+
+services:
+  db:
+    image: mysql:8
+    command: --innodb-use-native-aio=0
+    container_name: mysql_db
+    restart: always
+    environment:
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - nodenet
+
+  nodeserver:
+    build:
+      context: ./node_with_nginx/app
+      dockerfile: Dockerfile
+    image: fpazoti/node
+    container_name: node
+    entrypoint: wait-for mysql_db:3306 -t 40 -- ./start.sh
+    volumes:
+      - ./node_with_nginx/app:/usr/src/app
+    depends_on:
+      - db
+    networks:
+      - nodenet
+
+  nginx:
+    build:
+      context: ./node_with_nginx/nginx
+      dockerfile: Dockerfile
+    image: fpazoti/nginx
+    restart: always
+    container_name: nginx
+    depends_on:
+      - nodeserver
+    networks:
+      - nodenet
+    ports:
+      - "8080:80"
+
+networks:
+  nodenet:
+    driver: bridge
